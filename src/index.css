@@ -1,0 +1,78 @@
+/* ==========================================================================
+   全局样式与「设计变量」
+   --------------------------------------------------------------------------
+   这里定义的每个 --color-xxx，都会自动变成 Tailwind 的类名。
+   比如定义了 --color-ink，就能直接用 text-ink / bg-ink。
+   好处：颜色只在这一个地方定义，以后想换配色只改这里，全站跟着变。
+   ========================================================================== */
+
+@import 'tailwindcss';
+
+@theme {
+  /* --- 品牌色：B站粉。只用于导航、标识等界面元素，不用于数据编码 --- */
+  --color-brand: #fb7299;
+  --color-brand-ink: #d94f77;
+  --color-brand-soft: #fff2f6;
+
+  /* --- 页面与卡片 --- */
+  --color-plane: #f6f7f9; /* 页面底色 */
+  --color-card: #ffffff; /* 卡片底色（图表就画在这上面） */
+  --color-hairline: #e5e7eb; /* 细分割线 */
+
+  /* --- 文字层级：越往下越浅，用来建立视觉层次 --- */
+  --color-ink: #0f172a; /* 主文字：标题、数字 */
+  --color-ink-2: #475569; /* 次文字：说明、副标题 */
+  --color-ink-3: #94a3b8; /* 弱文字：坐标轴、单位、注释 */
+
+  /* --- 涨跌状态色（固定含义，不能挪作他用） --- */
+  --color-up: #0ca30c;
+  --color-down: #d03b3b;
+
+  /* 注意：图表用的颜色（八个内容分区的配色、有序色阶等）
+     不在这个文件里，而是在 src/theme.ts。
+     原因：图表颜色要传给 Recharts 当参数用，放在 JS 里最方便。
+     两边各管一摊，不重复定义。                                       */
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei',
+    'PingFang SC', sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-plane);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 数字统一用等宽字形，保证上下几行数字的个位对齐，看着才「专业」 */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* 页面切换时的一个极轻的淡入，避免生硬跳变。刻意做得很淡，不加动效感。 */
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.18s ease-out;
+  }
+}
