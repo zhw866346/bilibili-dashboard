@@ -1,0 +1,87 @@
+# 把打包好的看板发布到 GitHub Pages
+#
+# ★ 这个文件负责什么：每次 push 到 main，GitHub 就开一台干净的机器，
+#   装依赖 → 打包 → 把 dist/ 发布到 https://zhw866346.github.io/bilibili-dashboard/
+#
+# ★ 为什么不是「把 dist/ 提交进仓库」：
+#   dist/ 是构建产物，项目本来就把它排除在 git 之外（见 .gitignore）。
+#   提交进去会有两个毛病：一是仓库里多出一堆没人看的文件，
+#   二是它和源码会不同步 —— 改了源码忘了重新打包，线上跑的还是旧的，而且不报错。
+#   交给 Actions 每次现场构建，就不存在这个问题。
+#
+# ★ 顺序上有一条要紧的：仓库要先【公开】、Pages 要先【开启】，这个文件才能推。
+#   反过来的话，configure-pages 会因为「Pages 站点还不存在」直接失败，
+#   仓库上挂一个红叉，看着像代码坏了，其实只是顺序不对。
+#
+# ★ 构建不需要 Python。scripts/analyze.py 只在本地手动跑（npm run data:refresh），
+#   它算出来的结果以文件形式提交在仓库里，CI 直接读那个文件。
+#
+# ★ 不花钱：公开仓库的 Actions 分钟数免费无限。
+#   私有仓库跑它是要计费的 —— 这也是「先公开、再开 Pages」这条顺序的另一个理由。
+
+name: 部署到 GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # 允许在网页上手动点一下重跑（Actions 页面 → Run workflow）
+  workflow_dispatch:
+
+# 发布到 Pages 需要这三项权限，少一项 deploy-pages 就会被拒
+permissions:
+  contents: read   # 读代码
+  pages: write     # 写 Pages
+  id-token: write  # 发布时用来证明「这次部署确实来自这个仓库」
+
+# 同一时间只跑一次发布；排队而不是取消，
+# 免得两次 push 挨得太近时，先跑的那次被中途掐断留下半成品
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v4
+
+      # ★ Node 22 是必须显式写的：vite 8 要求 ^20.19.0 || >=22.12.0。
+      #   GitHub 默认的 Node 版本可能低于这个要求，不写就可能构建失败 ——
+      #   而那种失败看起来像「代码有问题」，实际只是版本不对。
+      #   （上面那串版本范围不是随手写的：它是 vite 自己 package.json 里的 engines 字段。
+      #     装完依赖后翻 node_modules/vite/package.json 就能核对。）
+      - name: 装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # 用 ci 而不是 install：它严格按 package-lock.json 还原，
+      # 不会因为「装到了更新的一版依赖」而出现「本地好的、线上坏的」
+      - name: 装依赖
+        run: npm ci
+
+      # 这一步里含 tsc --noEmit（见 package.json 的 build 脚本），
+      # 所以类型错误会在这里拦下来，不会带着错误发上线
+      - name: 打包
+        run: npm run build
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传打包产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 发布
+        id: deployment
+        uses: actions/deploy-pages@v4
